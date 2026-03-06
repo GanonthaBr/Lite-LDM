@@ -14,8 +14,7 @@ lightweight encoder to represent an image into a lower dimensional representatio
 thereby reducing the size of the network. We also introduce uncertainty scoring by
 Monte Carlo dropout to offer insights into where the model is performing well and
 where it needs to improve. This work directly contributes to the advancement of
-clinically relevant deep learning solutions.
+clinically relevant deep learning solutions
 
 
-### Proposal
-Our proposal can be viewed here https://www.overleaf.com/project/698de37dd7bfea56eb313a01
+
