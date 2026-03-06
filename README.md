@@ -17,5 +17,4 @@ where it needs to improve. This work directly contributes to the advancement of
 clinically relevant deep learning solutions
 
 
-### Proposal
-Our proposal can be viewed here https://www.overleaf.com/project/698de37dd7bfea56eb313a01
+
