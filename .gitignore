@@ -1,0 +1,3 @@
+.env
+**/mae-env/
+**/__pycache__/
