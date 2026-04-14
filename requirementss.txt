@@ -1,0 +1,27 @@
+# LiteLDM — Medical Imaging Diffusion Model
+# Install with: pip install -r requirements.txt
+#
+# NOTE: Install PyTorch separately first, matching your CUDA version:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+#   (replace cu118 with your version — check with: nvidia-smi)
+
+# ── Core Deep Learning ───────────────────────────────────────────
+torch
+torchvision
+
+# ── Diffusion / Generative ───────────────────────────────────────
+diffusers
+accelerate
+
+# ── Medical Imaging ──────────────────────────────────────────────
+torchio
+nibabel
+dicom2nifti
+
+# ── Data & Utils ─────────────────────────────────────────────────
+numpy
+matplotlib
+python-dotenv
+
+# ── HuggingFace ──────────────────────────────────────────────────
+huggingface_hub
