@@ -104,6 +104,22 @@ def build_training_objects(paths, min_content_ratio: float):
     return dataset, loader, device, vae, unet, ddpm
 
 
+def build_inference_objects():
+    device = resolve_device()
+    print(f"Using device: {device}")
+    vae = VAE(latent_ch=512).to(device)
+    unet = DiffusionUNet(latent_ch=512).to(device)
+    ddpm = DDPMScheduler(T=1000, device=str(device))
+    return device, vae, unet, ddpm
+
+
+def require_checkpoint(path: str, missing_hint: str) -> None:
+    if not Path(path).exists():
+        raise FileNotFoundError(
+            f"Missing checkpoint: {path}. {missing_hint}"
+        )
+
+
 def main() -> None:
     args = parse_args()
     ckpt_dir = Path(args.checkpoint_dir)
@@ -124,9 +140,13 @@ def main() -> None:
     else:
         paths = resolve_paths(args.local)
 
-    needs_data_and_models = args.stage in {"train-vae", "train-diffusion", "generate", "recon-check", "all"}
-    if needs_data_and_models:
+    needs_loader = args.stage in {"train-vae", "train-diffusion", "recon-check", "all"}
+    needs_models_only = args.stage in {"generate"}
+
+    if needs_loader:
         dataset, loader, device, vae, unet, ddpm = build_training_objects(paths, args.min_content_ratio)
+    elif needs_models_only:
+        device, vae, unet, ddpm = build_inference_objects()
     else:
         return
 
@@ -134,6 +154,7 @@ def main() -> None:
         train_vae(vae, loader, device, epochs=args.vae_epochs, lr=1e-4, ckpt_path=vae_ckpt)
 
     if args.stage in {"train-diffusion", "all"}:
+        require_checkpoint(vae_ckpt, "Run --stage train-vae first.")
         vae.load_state_dict(torch.load(vae_ckpt, map_location=device))
         vae.eval()
         latents = encode_dataset_to_latents(vae, loader, device)
@@ -142,6 +163,8 @@ def main() -> None:
         train_diffusion(unet, ddpm, latent_loader, device, epochs=args.diff_epochs, lr=2e-4, ckpt_path=diff_ckpt)
 
     if args.stage in {"generate", "all"}:
+        require_checkpoint(vae_ckpt, "Run --stage train-vae first.")
+        require_checkpoint(diff_ckpt, "Run --stage train-diffusion first.")
         vae.load_state_dict(torch.load(vae_ckpt, map_location=device))
         unet.load_state_dict(torch.load(diff_ckpt, map_location=device))
         generated = generate_slices(unet, vae, ddpm, device, n=args.num_generate, timesteps=1000)
@@ -153,6 +176,7 @@ def main() -> None:
             print(f"Saved generated tensor batch: {tensor_path}")
 
     if args.stage in {"recon-check", "all"}:
+        require_checkpoint(vae_ckpt, "Run --stage train-vae first.")
         vae.load_state_dict(torch.load(vae_ckpt, map_location=device))
         recon_img_path = str(out_dir / f"reconstruction_{run_id}.png")
         reconstruction_quality_plot(vae, loader, device, n=4, save_path=recon_img_path, show=args.show_plots)
