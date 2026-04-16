@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run from repository root after upload to the VM.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+# Keep environment inside project root by default unless VENV_DIR is explicitly provided.
+VENV_DIR="${VENV_DIR:-$PROJECT_ROOT/.venv}"
 USER_PYTHON_BIN="${PYTHON_BIN:-}"
 PYTHON_BIN=""
 
@@ -37,16 +42,17 @@ if (( PY_MAJOR < 3 || (PY_MAJOR == 3 && PY_MINOR < 10) )); then
   exit 1
 fi
 
-if [[ -x ".venv/bin/python" ]]; then
-  VENV_VERSION="$(.venv/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+if [[ -x "$VENV_DIR/bin/python" ]]; then
+  VENV_VERSION="$($VENV_DIR/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
   if [[ "$VENV_VERSION" != "$PY_VERSION" ]]; then
-    echo "Existing .venv uses Python $VENV_VERSION; recreating with Python $PY_VERSION"
-    rm -rf .venv
+    echo "Existing $VENV_DIR uses Python $VENV_VERSION; recreating with Python $PY_VERSION"
+    rm -rf "$VENV_DIR"
   fi
 fi
 
-$PYTHON_BIN -m venv --clear .venv
-source .venv/bin/activate
+mkdir -p "$(dirname "$VENV_DIR")"
+$PYTHON_BIN -m venv --clear "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
 
 python -m pip install --upgrade pip setuptools wheel
 
@@ -127,4 +133,4 @@ done
 # Example (CUDA 12.1):
 # python -m pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
 
-echo "VM setup complete. Activate env with: source .venv/bin/activate"
+echo "VM setup complete. Activate env with: source $VENV_DIR/bin/activate"

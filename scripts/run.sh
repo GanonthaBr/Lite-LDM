@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
 # LiteLDM Bash runner for remote VMs.
 # Usage examples:
 #   bash scripts/run.sh --stage all
@@ -16,8 +20,8 @@ MIN_CONTENT_RATIO="0.001"
 VAE_EPOCHS="50"
 DIFF_EPOCHS="100"
 NUM_GENERATE="4"
-CHECKPOINT_DIR="./checkpoints"
-OUTPUT_DIR="./outputs"
+CHECKPOINT_DIR="$PROJECT_ROOT/checkpoints"
+OUTPUT_DIR="$PROJECT_ROOT/outputs"
 SAVE_TENSORS="1"
 SHOW_PLOTS="0"
 
@@ -100,7 +104,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-CMD=(python scripts/run_pipeline.py
+CMD=(python "$PROJECT_ROOT/scripts/run_pipeline.py"
   --stage "$STAGE"
   --encoder-backbone "$ENCODER"
   --token-env "$TOKEN_ENV"
