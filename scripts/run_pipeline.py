@@ -51,6 +51,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="./outputs", help="Directory for generated images and artifacts")
     parser.add_argument("--show-plots", action="store_true", help="Display matplotlib windows (off by default for VM/headless)")
     parser.add_argument("--save-tensors", action="store_true", help="Save generated tensor batch as .pt")
+    parser.add_argument(
+        "--encoder-backbone",
+        choices=["conv", "strainer"],
+        default="conv",
+        help="VAE encoder backbone",
+    )
+    parser.add_argument("--strainer-hidden-features", type=int, default=256)
+    parser.add_argument("--strainer-total-layers", type=int, default=6)
+    parser.add_argument("--strainer-shared-encoder-layers", type=int, default=5)
+    parser.add_argument("--strainer-num-train-decoders", type=int, default=10)
+    parser.add_argument(
+        "--strainer-encoder-weights",
+        default=None,
+        help="Optional path to pre-trained STRAINER encoder weights (.pth)",
+    )
     return parser.parse_args()
 
 
@@ -90,24 +105,40 @@ def run_data_stage(local_override: Optional[str]):
     return paths
 
 
-def build_training_objects(paths, min_content_ratio: float):
-    dataset, loader = build_slice_loader(paths.processed_dir, min_content_ratio=min_content_ratio)
+def build_training_objects(paths, args):
+    dataset, loader = build_slice_loader(paths.processed_dir, min_content_ratio=args.min_content_ratio)
     sample = next(iter(loader))
     print(f"Batch shape: {sample.shape}, dtype: {sample.dtype}, range: [{sample.min():.2f}, {sample.max():.2f}]")
 
     device = resolve_device()
     print(f"Using device: {device}")
 
-    vae = VAE(latent_ch=512).to(device)
+    vae = VAE(
+        latent_ch=512,
+        encoder_backbone=args.encoder_backbone,
+        strainer_hidden_features=args.strainer_hidden_features,
+        strainer_total_layers=args.strainer_total_layers,
+        strainer_shared_encoder_layers=args.strainer_shared_encoder_layers,
+        strainer_num_train_decoders=args.strainer_num_train_decoders,
+        strainer_encoder_weights=args.strainer_encoder_weights,
+    ).to(device)
     unet = DiffusionUNet(latent_ch=512).to(device)
     ddpm = DDPMScheduler(T=1000, device=str(device))
     return dataset, loader, device, vae, unet, ddpm
 
 
-def build_inference_objects():
+def build_inference_objects(args):
     device = resolve_device()
     print(f"Using device: {device}")
-    vae = VAE(latent_ch=512).to(device)
+    vae = VAE(
+        latent_ch=512,
+        encoder_backbone=args.encoder_backbone,
+        strainer_hidden_features=args.strainer_hidden_features,
+        strainer_total_layers=args.strainer_total_layers,
+        strainer_shared_encoder_layers=args.strainer_shared_encoder_layers,
+        strainer_num_train_decoders=args.strainer_num_train_decoders,
+        strainer_encoder_weights=args.strainer_encoder_weights,
+    ).to(device)
     unet = DiffusionUNet(latent_ch=512).to(device)
     ddpm = DDPMScheduler(T=1000, device=str(device))
     return device, vae, unet, ddpm
@@ -144,9 +175,9 @@ def main() -> None:
     needs_models_only = args.stage in {"generate"}
 
     if needs_loader:
-        dataset, loader, device, vae, unet, ddpm = build_training_objects(paths, args.min_content_ratio)
+        dataset, loader, device, vae, unet, ddpm = build_training_objects(paths, args)
     elif needs_models_only:
-        device, vae, unet, ddpm = build_inference_objects()
+        device, vae, unet, ddpm = build_inference_objects(args)
     else:
         return
 

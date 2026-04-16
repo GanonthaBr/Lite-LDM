@@ -58,6 +58,22 @@ Optional arguments:
 - `--save-tensors`: save generated tensor batch as `.pt`.
 - `--show-plots`: display plot windows (off by default for remote/headless VMs).
 
+### STRAINER Encoder Option
+
+You can switch the VAE encoder from convolutional to STRAINER:
+
+```bash
+python scripts/run_pipeline.py --stage train-vae --encoder-backbone strainer
+```
+
+If you already pre-trained STRAINER encoder weights (for example from your INR pretraining script), load them with:
+
+```bash
+python scripts/run_pipeline.py --stage train-vae --encoder-backbone strainer --strainer-encoder-weights /path/to/strainer_encoder_weights.pth
+```
+
+Important: use the same encoder-related flags for `train-vae`, `train-diffusion`, `generate`, and `recon-check` when sharing checkpoints.
+
 ### Remote GPU VM Setup
 
 Upload the whole folder to your VM, then run:
@@ -78,6 +94,34 @@ Recommended VM run (headless-safe, with saved outputs):
 
 ```bash
 python scripts/run_pipeline.py --stage all --checkpoint-dir ./checkpoints --output-dir ./outputs --save-tensors
+```
+
+### Bash Runner Scripts
+
+For convenience on remote VMs, use the bash wrappers in `scripts/`.
+
+Make scripts executable once:
+
+```bash
+chmod +x scripts/run.sh scripts/run_all_conv.sh scripts/run_all_strainer.sh
+```
+
+Run full pipeline with convolutional encoder:
+
+```bash
+bash scripts/run_all_conv.sh
+```
+
+Run full pipeline with STRAINER encoder:
+
+```bash
+bash scripts/run_all_strainer.sh
+```
+
+Run a custom stage with flexible options:
+
+```bash
+bash scripts/run.sh --stage train-diffusion --encoder strainer --checkpoint-dir ./checkpoints_strainer --output-dir ./outputs_strainer
 ```
 
 ### Saved Results

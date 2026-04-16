@@ -1,4 +1,6 @@
 import math
+from copy import deepcopy
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -46,6 +48,206 @@ class VAEEncoder(nn.Module):
         return self.to_mu(h), self.to_logvar(h)
 
 
+class SineLayer(nn.Module):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        is_first: bool = False,
+        omega_0: float = 30.0,
+    ):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.is_first = is_first
+        self.in_features = in_features
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        with torch.no_grad():
+            if self.is_first:
+                self.linear.weight.uniform_(-1.0 / self.in_features, 1.0 / self.in_features)
+            else:
+                bound = math.sqrt(6.0 / self.in_features) / self.omega_0
+                self.linear.weight.uniform_(-bound, bound)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.sin(self.omega_0 * self.linear(x))
+
+
+class INR(nn.Module):
+    def __init__(
+        self,
+        in_features: int,
+        hidden_features: int,
+        hidden_layers: int,
+        out_features: int,
+        outermost_linear: bool = True,
+        first_omega_0: float = 30.0,
+        hidden_omega_0: float = 30.0,
+    ):
+        super().__init__()
+        layers = []
+        if hidden_layers > 0:
+            layers.append(
+                SineLayer(
+                    in_features,
+                    hidden_features,
+                    is_first=True,
+                    omega_0=first_omega_0,
+                )
+            )
+            n_middle = hidden_layers - 1
+            if outermost_linear:
+                n_middle -= 1
+            for _ in range(max(0, n_middle)):
+                layers.append(
+                    SineLayer(
+                        hidden_features,
+                        hidden_features,
+                        is_first=False,
+                        omega_0=hidden_omega_0,
+                    )
+                )
+        if outermost_linear or hidden_layers == 0:
+            final = nn.Linear(hidden_features, out_features)
+            with torch.no_grad():
+                bound = math.sqrt(6.0 / hidden_features) / max(hidden_omega_0, 1e-12)
+                final.weight.uniform_(-bound, bound)
+            layers.append(final)
+        else:
+            layers.append(
+                SineLayer(
+                    hidden_features,
+                    out_features,
+                    is_first=False,
+                    omega_0=hidden_omega_0,
+                )
+            )
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+class SharedINR(nn.Module):
+    def __init__(
+        self,
+        in_features: int,
+        hidden_features: int,
+        hidden_layers: int,
+        out_features: int,
+        outermost_linear: bool = True,
+        first_omega_0: float = 30.0,
+        hidden_omega_0: float = 30.0,
+        shared_encoder_layers: int = 5,
+        num_decoders: int = 10,
+    ):
+        super().__init__()
+        if hidden_layers <= shared_encoder_layers:
+            raise ValueError("hidden_layers must be greater than shared_encoder_layers")
+        self.shared_encoder_layers = shared_encoder_layers
+        self.num_decoders = num_decoders
+        self.encoderINR = INR(
+            in_features=in_features,
+            hidden_features=hidden_features,
+            hidden_layers=shared_encoder_layers - 1,
+            out_features=hidden_features,
+            outermost_linear=False,
+            first_omega_0=first_omega_0,
+            hidden_omega_0=hidden_omega_0,
+        )
+        num_decoder_layers = hidden_layers - shared_encoder_layers
+        self.decoderINRs = nn.ModuleList(
+            [
+                INR(
+                    in_features=hidden_features,
+                    hidden_features=hidden_features,
+                    hidden_layers=num_decoder_layers - 1,
+                    out_features=out_features,
+                    outermost_linear=outermost_linear,
+                    first_omega_0=first_omega_0,
+                    hidden_omega_0=hidden_omega_0,
+                )
+                for _ in range(num_decoders)
+            ]
+        )
+
+    def forward(self, coords: torch.Tensor):
+        features = self.encoderINR(coords)
+        return [decoder(features) for decoder in self.decoderINRs]
+
+    def load_encoder_weights_from(self, other_model) -> None:
+        self.encoderINR.load_state_dict(deepcopy(other_model.encoderINR.state_dict()))
+
+
+class STRAINERVAEEncoder(nn.Module):
+    def __init__(
+        self,
+        latent_ch: int = 512,
+        hidden_features: int = 256,
+        total_layers: int = 6,
+        shared_encoder_layers: int = 5,
+        num_train_decoders: int = 10,
+        first_omega_0: float = 30.0,
+        hidden_omega_0: float = 30.0,
+    ):
+        super().__init__()
+        self.latent_ch = latent_ch
+        self.strainer = SharedINR(
+            in_features=2,
+            hidden_features=hidden_features,
+            hidden_layers=total_layers,
+            out_features=1,
+            shared_encoder_layers=shared_encoder_layers,
+            num_decoders=num_train_decoders,
+            first_omega_0=first_omega_0,
+            hidden_omega_0=hidden_omega_0,
+        )
+        self.pixel_projection = nn.Sequential(
+            nn.Linear(hidden_features, hidden_features),
+            nn.LayerNorm(hidden_features),
+            nn.GELU(),
+            nn.Linear(hidden_features, latent_ch * 2),
+        )
+        self.intensity_scale = nn.Parameter(torch.tensor(1.0))
+
+    def _get_coords(self, h: int, w: int, device: torch.device) -> torch.Tensor:
+        xs = torch.linspace(-1, 1, w, device=device)
+        ys = torch.linspace(-1, 1, h, device=device)
+        y_grid, x_grid = torch.meshgrid(ys, xs, indexing="ij")
+        coords = torch.stack([x_grid.reshape(-1), y_grid.reshape(-1)], dim=-1)
+        return coords.unsqueeze(0)
+
+    def load_encoder_weights(self, path: str) -> None:
+        state = torch.load(path, map_location="cpu")
+        if "encoder_weights" in state:
+            self.strainer.encoderINR.load_state_dict(state["encoder_weights"])
+        else:
+            self.strainer.encoderINR.load_state_dict(state)
+
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        bsz, _, h, w = x.shape
+        coords = self._get_coords(h, w, x.device).expand(bsz, -1, -1)
+        features = self.strainer.encoderINR(coords)
+
+        pixel_weights = x.mean(dim=1).reshape(bsz, -1, 1)
+        features = features * (1.0 + self.intensity_scale * pixel_weights)
+
+        mu_logvar_px = self.pixel_projection(features)
+        mu_px, logvar_px = mu_logvar_px.chunk(2, dim=-1)
+
+        mu_map = mu_px.transpose(1, 2).reshape(bsz, self.latent_ch, h, w)
+        logvar_map = logvar_px.transpose(1, 2).reshape(bsz, self.latent_ch, h, w)
+
+        latent_h = max(1, h // 16)
+        latent_w = max(1, w // 16)
+        mu = F.adaptive_avg_pool2d(mu_map, (latent_h, latent_w))
+        logvar = F.adaptive_avg_pool2d(logvar_map, (latent_h, latent_w))
+        return mu, logvar
+
+
 class VAEDecoder(nn.Module):
     def __init__(self, latent_ch: int = 512):
         super().__init__()
@@ -71,9 +273,31 @@ class VAEDecoder(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, latent_ch: int = 512):
+    def __init__(
+        self,
+        latent_ch: int = 512,
+        encoder_backbone: str = "conv",
+        strainer_hidden_features: int = 256,
+        strainer_total_layers: int = 6,
+        strainer_shared_encoder_layers: int = 5,
+        strainer_num_train_decoders: int = 10,
+        strainer_encoder_weights: Optional[str] = None,
+    ):
         super().__init__()
-        self.encoder = VAEEncoder(latent_ch)
+        if encoder_backbone == "strainer":
+            self.encoder = STRAINERVAEEncoder(
+                latent_ch=latent_ch,
+                hidden_features=strainer_hidden_features,
+                total_layers=strainer_total_layers,
+                shared_encoder_layers=strainer_shared_encoder_layers,
+                num_train_decoders=strainer_num_train_decoders,
+            )
+            if strainer_encoder_weights:
+                self.encoder.load_encoder_weights(strainer_encoder_weights)
+        elif encoder_backbone == "conv":
+            self.encoder = VAEEncoder(latent_ch)
+        else:
+            raise ValueError("encoder_backbone must be either 'conv' or 'strainer'")
         self.decoder = VAEDecoder(latent_ch)
 
     def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
