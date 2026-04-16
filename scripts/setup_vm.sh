@@ -37,7 +37,15 @@ if (( PY_MAJOR < 3 || (PY_MAJOR == 3 && PY_MINOR < 10) )); then
   exit 1
 fi
 
-$PYTHON_BIN -m venv .venv
+if [[ -x ".venv/bin/python" ]]; then
+  VENV_VERSION="$(.venv/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  if [[ "$VENV_VERSION" != "$PY_VERSION" ]]; then
+    echo "Existing .venv uses Python $VENV_VERSION; recreating with Python $PY_VERSION"
+    rm -rf .venv
+  fi
+fi
+
+$PYTHON_BIN -m venv --clear .venv
 source .venv/bin/activate
 
 python -m pip install --upgrade pip setuptools wheel
