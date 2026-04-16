@@ -4,8 +4,8 @@
 #SBATCH -t 24:00:00
 #SBATCH --gpus=v100-32:1
 #SBATCH -J liteldm-strainer
-#SBATCH -o /ocean/projects/cis260093p/gpayang/Lite-LDM/logs/slurm-%j.out
-#SBATCH -e /ocean/projects/cis260093p/gpayang/Lite-LDM/logs/slurm-%j.err
+#SBATCH -o /ocean/projects/cis260093p/gpayang/Lite-LDM/slurm-%j.out
+#SBATCH -e /ocean/projects/cis260093p/gpayang/Lite-LDM/slurm-%j.err
 
 set -euo pipefail
 
