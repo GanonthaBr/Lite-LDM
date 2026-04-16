@@ -2,10 +2,45 @@
 set -euo pipefail
 
 # Run from repository root after upload to the VM.
-python3 -m venv .venv
+USER_PYTHON_BIN="${PYTHON_BIN:-}"
+PYTHON_BIN=""
+
+# Priority:
+# 1) Explicit override via PYTHON_BIN env var
+# 2) Active conda env python (if any)
+# 3) python3.11, python3.10, python3
+if [[ -n "$USER_PYTHON_BIN" ]]; then
+  PYTHON_BIN="$USER_PYTHON_BIN"
+elif [[ -n "${CONDA_PREFIX:-}" ]] && command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+elif command -v python3.11 >/dev/null 2>&1; then
+  PYTHON_BIN="python3.11"
+elif command -v python3.10 >/dev/null 2>&1; then
+  PYTHON_BIN="python3.10"
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+else
+  echo "No suitable Python interpreter found."
+  echo "Install Python 3.10+ or activate a conda env with Python 3.10+."
+  exit 1
+fi
+
+echo "Using interpreter: $PYTHON_BIN"
+
+PY_VERSION="$($PYTHON_BIN -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+PY_MAJOR="${PY_VERSION%%.*}"
+PY_MINOR="${PY_VERSION##*.}"
+
+if (( PY_MAJOR < 3 || (PY_MAJOR == 3 && PY_MINOR < 10) )); then
+  echo "Python $PY_VERSION detected, but this project requires Python 3.10+ for pinned dependencies."
+  echo "Activate a newer conda env (recommended) or set PYTHON_BIN to python3.10/python3.11."
+  exit 1
+fi
+
+$PYTHON_BIN -m venv .venv
 source .venv/bin/activate
 
-python -m pip install --upgrade pip wheel
+python -m pip install --upgrade pip setuptools wheel
 
 # Install project dependencies from both requirement files.
 for req_file in requirements.txt requirementss.txt; do
