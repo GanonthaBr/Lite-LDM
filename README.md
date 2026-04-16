@@ -118,6 +118,22 @@ Run full pipeline with STRAINER encoder:
 bash scripts/run_all_strainer.sh
 ```
 
+### Slurm GPU Job (Bridges2)
+
+To ensure training runs on a GPU compute node (not login node), submit the provided Slurm script:
+
+```bash
+cd /ocean/projects/cis260093p/gpayang/Lite-LDM
+sbatch scripts/run_all_strainer.sbatch
+```
+
+Check job status/logs:
+
+```bash
+squeue -u $USER
+tail -f /ocean/projects/cis260093p/gpayang/Lite-LDM/logs/slurm-<jobid>.out
+```
+
 Run a custom stage with flexible options:
 
 ```bash
