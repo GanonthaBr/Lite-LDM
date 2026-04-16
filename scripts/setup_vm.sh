@@ -50,14 +50,75 @@ source .venv/bin/activate
 
 python -m pip install --upgrade pip setuptools wheel
 
+install_requirements_linewise() {
+  local req_file="$1"
+  local strict_mode="$2"
+  local tmp_file
+  local failed_file
+  local had_failures=0
+
+  tmp_file="$(mktemp)"
+  failed_file="$(mktemp)"
+
+  # Some exported requirement files are UTF-16. Convert when needed.
+  if iconv -f utf-16 -t utf-8 "$req_file" > "$tmp_file" 2>/dev/null; then
+    :
+  else
+    cp "$req_file" "$tmp_file"
+  fi
+
+  # Normalize CRLF line endings.
+  sed -i 's/\r$//' "$tmp_file"
+
+  while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
+    line="$(echo "$raw_line" | sed 's/^\s*//;s/\s*$//')"
+
+    if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then
+      continue
+    fi
+
+    # Skip pip options/references in linewise mode.
+    if [[ "$line" == -* ]]; then
+      continue
+    fi
+
+    echo "  -> Installing: $line"
+    if ! python -m pip install "$line"; then
+      echo "$line" >> "$failed_file"
+      had_failures=1
+    fi
+  done < "$tmp_file"
+
+  if [[ "$had_failures" -eq 1 ]]; then
+    if [[ "$strict_mode" == "strict" ]]; then
+      echo "Failed to install one or more dependencies from $req_file:"
+      cat "$failed_file"
+      rm -f "$tmp_file" "$failed_file"
+      exit 1
+    else
+      echo "Warning: some entries in $req_file are not pip-installable in this environment (often conda-only packages)."
+      echo "Skipped entries:"
+      cat "$failed_file"
+    fi
+  fi
+
+  rm -f "$tmp_file" "$failed_file"
+}
+
 # Install project dependencies from both requirement files.
 for req_file in requirements.txt requirementss.txt; do
-  if [[ -f "$req_file" ]]; then
-    echo "Installing dependencies from $req_file"
-    python -m pip install -r "$req_file"
-  else
+  if [[ ! -f "$req_file" ]]; then
     echo "Missing required dependency file: $req_file"
     exit 1
+  fi
+
+  echo "Installing dependencies from $req_file"
+  if [[ "$req_file" == "requirements.txt" ]]; then
+    # This file may include conda-exported entries unavailable to pip.
+    install_requirements_linewise "$req_file" "warn"
+  else
+    # This file is expected to be fully pip-installable.
+    install_requirements_linewise "$req_file" "strict"
   fi
 done
 
