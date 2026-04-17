@@ -15,6 +15,7 @@ import utils.misc as misc
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 import swin_mae
 from utils.engine_pretrain import train_one_epoch
+from utils.dataset import NiftiDataset
 
 
 def get_args_parser():
@@ -66,36 +67,6 @@ def get_args_parser():
     parser.set_defaults(pin_mem=True)
 
     return parser
-
-
-class NiftiDataset(torch.utils.data.Dataset):
-    """
-    Unlabeled dataset for .nii.gz files. Recursively finds all NIFTI files
-    under `root_dir` and applies the given TorchIO transform.
-    """
-
-    def __init__(self, root_dir: str, transform: tio.Transform | None = None):
-        self.transform = transform
-        self.file_paths = sorted(glob.glob(
-            os.path.join(root_dir, '**', '*.nii.gz'), recursive=True
-        ))
-        if len(self.file_paths) == 0:
-            raise RuntimeError(f"No .nii.gz files found under: {root_dir}")
-        print(f"Found {len(self.file_paths)} NIFTI files in {root_dir}")
-
-    def __len__(self):
-        return len(self.file_paths)
-
-    def __getitem__(self, idx):
-        subject = tio.Subject(
-            image=tio.ScalarImage(self.file_paths[idx])
-        )
-        if self.transform is not None:
-            subject = self.transform(subject)
-
-        # Return tensor of shape (C, D, H, W); no label needed for MAE pre-training 
-        return subject['image'].data
-
 
 def main(args):
     # Fixed random seeds

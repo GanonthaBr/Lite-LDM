@@ -7,9 +7,18 @@ import matplotlib.pyplot as plt
 import torchio as tio
 
 import swin_mae
+import argparse
 
 sys.path.append('..')
 
+def get_args():
+
+    parser = argparse.ArgumentParser('MAE Visualizer', add_help=False)
+    parser.add_argument('--checkpoint_path', type=str)
+    parser.add_argument('--source_path', type=str)
+    parser.add_argument('--image_size', default=224, type=int)
+
+    return parser
 
 def show_slices(volume, title=''):
     """
@@ -96,8 +105,11 @@ def run_one_image(x, model, save_path="result.png"):
 
 if __name__ == '__main__':
     # Load a .nii.gz volume with TorchIO and preprocess to match training
-    img_path = r'/ocean/projects/cis260093p/ulowami/nifti/3000521.nii.gz'
-    input_size = 224
+    parser = get_args()
+    args = parser.parse_args()
+    img_path = args.source_path
+    input_size = args.image_size
+    checkpoint_dir = args.checkpoint_path
 
     transform = tio.Compose([
         tio.Resample((1.0, 1.0, 1.0)),
@@ -111,8 +123,7 @@ if __name__ == '__main__':
     img = subject['image'].data.permute(1, 2, 3, 0).numpy()
     assert img.shape == (input_size, input_size, input_size, 1)
 
-    chkpt_dir = r'output_dir/checkpoint-300.pth'
-    model_mae = prepare_model(chkpt_dir, 'swin_mae')
+    model_mae = prepare_model(checkpoint_dir, 'swin_mae')
     print('Model loaded.')
 
     torch.manual_seed(2)
