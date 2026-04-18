@@ -1,0 +1,236 @@
+SwinMAE(
+  (patch_embed): PatchEmbedding3D(
+    (proj): Conv3d(1, 96, kernel_size=(4, 4, 4), stride=(4, 4, 4))
+    (norm): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+  )
+  (layers): ModuleList(
+    (0): BasicBlock3D(
+      (blocks): ModuleList(
+        (0): SwinTransformerBlock3D(
+          (norm1): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=96, out_features=288, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=96, out_features=96, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): Identity()
+          (norm2): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=96, out_features=384, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=384, out_features=96, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+        (1): SwinTransformerBlock3D(
+          (norm1): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=96, out_features=288, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=96, out_features=96, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): DropPath()
+          (norm2): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=96, out_features=384, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=384, out_features=96, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+      (downsample): PatchMerging3D(
+        (norm): LayerNorm((768,), eps=1e-06, elementwise_affine=True)
+        (reduction): Linear(in_features=768, out_features=192, bias=False)
+      )
+    )
+    (1): BasicBlock3D(
+      (blocks): ModuleList(
+        (0-1): 2 x SwinTransformerBlock3D(
+          (norm1): LayerNorm((192,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=192, out_features=576, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=192, out_features=192, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): DropPath()
+          (norm2): LayerNorm((192,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=192, out_features=768, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=768, out_features=192, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+      (downsample): PatchMerging3D(
+        (norm): LayerNorm((1536,), eps=1e-06, elementwise_affine=True)
+        (reduction): Linear(in_features=1536, out_features=384, bias=False)
+      )
+    )
+    (2): BasicBlock3D(
+      (blocks): ModuleList(
+        (0-1): 2 x SwinTransformerBlock3D(
+          (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=384, out_features=1152, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=384, out_features=384, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): DropPath()
+          (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=384, out_features=1536, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=1536, out_features=384, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+      (downsample): PatchMerging3D(
+        (norm): LayerNorm((3072,), eps=1e-06, elementwise_affine=True)
+        (reduction): Linear(in_features=3072, out_features=768, bias=False)
+      )
+    )
+    (3): BasicBlock3D(
+      (blocks): ModuleList(
+        (0-1): 2 x SwinTransformerBlock3D(
+          (norm1): LayerNorm((768,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=768, out_features=2304, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=768, out_features=768, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): DropPath()
+          (norm2): LayerNorm((768,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=768, out_features=3072, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=3072, out_features=768, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+    )
+  )
+  (first_patch_expanding): PatchExpanding3D(
+    (expand): Linear(in_features=768, out_features=3072, bias=False)
+    (norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True)
+  )
+  (layers_up): ModuleList(
+    (0): BasicBlockUp3D(
+      (blocks): ModuleList(
+        (0-1): 2 x SwinTransformerBlock3D(
+          (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=384, out_features=1152, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=384, out_features=384, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): DropPath()
+          (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=384, out_features=1536, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=1536, out_features=384, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+      (upsample): PatchExpanding3D(
+        (expand): Linear(in_features=384, out_features=1536, bias=False)
+        (norm): LayerNorm((192,), eps=1e-06, elementwise_affine=True)
+      )
+    )
+    (1): BasicBlockUp3D(
+      (blocks): ModuleList(
+        (0-1): 2 x SwinTransformerBlock3D(
+          (norm1): LayerNorm((192,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=192, out_features=576, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=192, out_features=192, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): DropPath()
+          (norm2): LayerNorm((192,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=192, out_features=768, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=768, out_features=192, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+      (upsample): PatchExpanding3D(
+        (expand): Linear(in_features=192, out_features=768, bias=False)
+        (norm): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+      )
+    )
+    (2): BasicBlockUp3D(
+      (blocks): ModuleList(
+        (0): SwinTransformerBlock3D(
+          (norm1): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=96, out_features=288, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=96, out_features=96, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): Identity()
+          (norm2): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=96, out_features=384, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=384, out_features=96, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+        (1): SwinTransformerBlock3D(
+          (norm1): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+          (attn): WindowAttention3D(
+            (qkv): Linear(in_features=96, out_features=288, bias=True)
+            (attn_drop): Dropout(p=0, inplace=False)
+            (proj): Linear(in_features=96, out_features=96, bias=True)
+            (proj_drop): Dropout(p=0, inplace=False)
+            (softmax): Softmax(dim=-1)
+          )
+          (drop_path): DropPath()
+          (norm2): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+          (mlp): Mlp(
+            (fc1): Linear(in_features=96, out_features=384, bias=True)
+            (act): GELU(approximate='none')
+            (drop1): Dropout(p=0, inplace=False)
+            (fc2): Linear(in_features=384, out_features=96, bias=True)
+            (drop2): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+      (upsample): Identity()
+    )
+  )
+  (norm_up): LayerNorm((96,), eps=1e-06, elementwise_affine=True)
+  (decoder_pred): Linear(in_features=96, out_features=64, bias=True)
+)
