@@ -14,6 +14,7 @@ def train_vae(vae, loader: DataLoader, device: torch.device, epochs: int = 50, l
     vae_opt = torch.optim.AdamW(vae.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(vae_opt, T_max=epochs)
 
+    history = []
     vae.train()
     for epoch in range(epochs):
         total_loss = recon_l = kl_l = 0.0
@@ -33,13 +34,25 @@ def train_vae(vae, loader: DataLoader, device: torch.device, epochs: int = 50, l
 
         scheduler.step()
         n = len(loader)
+        epoch_loss = total_loss / n
+        epoch_recon = recon_l / n
+        epoch_kl = kl_l / n
         print(
             f"[VAE] Epoch {epoch + 1:>3}/{epochs} "
-            f"loss={total_loss / n:.4f} recon={recon_l / n:.4f} kl={kl_l / n:.6f}"
+            f"loss={epoch_loss:.4f} recon={epoch_recon:.4f} kl={epoch_kl:.6f}"
+        )
+        history.append(
+            {
+                "epoch": epoch + 1,
+                "loss": epoch_loss,
+                "recon_loss": epoch_recon,
+                "kl_loss": epoch_kl,
+            }
         )
 
     torch.save(vae.state_dict(), ckpt_path)
     print(f"VAE saved -> {ckpt_path}")
+    return history
 
 
 def encode_dataset_to_latents(vae, loader: DataLoader, device: torch.device) -> torch.Tensor:
@@ -71,6 +84,7 @@ def train_diffusion(
     diff_sched = torch.optim.lr_scheduler.CosineAnnealingLR(diff_opt, T_max=epochs)
 
     unet.train()
+    history = []
     for epoch in range(epochs):
         total = 0.0
         for (z0,) in latent_loader:
@@ -89,7 +103,15 @@ def train_diffusion(
             total += loss.item()
 
         diff_sched.step()
-        print(f"[DIFF] Epoch {epoch + 1:>3}/{epochs} noise_mse={total / len(latent_loader):.5f}")
+        epoch_noise_mse = total / len(latent_loader)
+        print(f"[DIFF] Epoch {epoch + 1:>3}/{epochs} noise_mse={epoch_noise_mse:.5f}")
+        history.append(
+            {
+                "epoch": epoch + 1,
+                "noise_mse": epoch_noise_mse,
+            }
+        )
 
     torch.save(unet.state_dict(), ckpt_path)
     print(f"Diffusion model saved -> {ckpt_path}")
+    return history

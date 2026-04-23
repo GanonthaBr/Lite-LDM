@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 from datetime import datetime
@@ -182,7 +183,11 @@ def main() -> None:
         return
 
     if args.stage in {"train-vae", "all"}:
-        train_vae(vae, loader, device, epochs=args.vae_epochs, lr=1e-4, ckpt_path=vae_ckpt)
+        vae_metrics = train_vae(vae, loader, device, epochs=args.vae_epochs, lr=1e-4, ckpt_path=vae_ckpt)
+        vae_metrics_path = out_dir / f"vae_train_metrics_{run_id}.json"
+        with open(vae_metrics_path, "w", encoding="utf-8") as f:
+            json.dump(vae_metrics, f, indent=2)
+        print(f"Saved VAE training metrics: {vae_metrics_path}")
 
     if args.stage in {"train-diffusion", "all"}:
         require_checkpoint(vae_ckpt, "Run --stage train-vae first.")
@@ -191,7 +196,11 @@ def main() -> None:
         latents = encode_dataset_to_latents(vae, loader, device)
         print(f"Latent bank: {latents.shape}")
         latent_loader = build_latent_loader(latents, batch_size=8)
-        train_diffusion(unet, ddpm, latent_loader, device, epochs=args.diff_epochs, lr=2e-4, ckpt_path=diff_ckpt)
+        diff_metrics = train_diffusion(unet, ddpm, latent_loader, device, epochs=args.diff_epochs, lr=2e-4, ckpt_path=diff_ckpt)
+        diff_metrics_path = out_dir / f"diffusion_train_metrics_{run_id}.json"
+        with open(diff_metrics_path, "w", encoding="utf-8") as f:
+            json.dump(diff_metrics, f, indent=2)
+        print(f"Saved diffusion training metrics: {diff_metrics_path}")
 
     if args.stage in {"generate", "all"}:
         require_checkpoint(vae_ckpt, "Run --stage train-vae first.")
