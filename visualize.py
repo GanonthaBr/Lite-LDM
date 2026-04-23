@@ -94,9 +94,11 @@ class SharedINR(nn.Module):
         return [decoder(features) for decoder in self.decoderINRs]
 
     def load_encoder_weights_from_checkpoint(self, checkpoint_path):
+
         state = torch.load(checkpoint_path, map_location=device)
-        self.encoderINR.load_state_dict(state['encoder_weights'])
-        print(f"Encoder weights loaded from {checkpoint_path}")
+        encoder_state = {k: v for k, v in state.items() if k.startswith("encoderINR")}
+        self.load_state_dict(encoder_state, strict=False)
+        print(f"Encoder weights loaded (decoders ignored) from {checkpoint_path}")
 
 # Coordinate grid
 def get_coords_3d(D, H, W, device):
@@ -112,11 +114,11 @@ def get_coords_3d(D, H, W, device):
     return coords.unsqueeze(0)
 
 # Paths
-NIFTI_DIR    = "/ocean/projects/cis250019p/thierryh/strainer_project/nifti_converted"
-WEIGHTS_PATH = "/ocean/projects/cis250019p/thierryh/strainer_project/strainer_encoder_3d_weights.pth"
-SAVE_DIR     = "/ocean/projects/cis250019p/thierryh/strainer_project"
+NIFTI_DIR    = "/ocean/projects/cis260093p/ulowami/nifti"
+WEIGHTS_PATH = "/ocean/projects/cis260093p/shared/runs/strainer_ldm/strainer_model.pth"
+SAVE_DIR     = "/ocean/projects/cis260093p/shared/runs/"
 
-TARGET_SHAPE = (80, 80, 100)
+TARGET_SHAPE = (224, 224, 224)
 D, H, W      = TARGET_SHAPE
 
 # Load one real CT volume as ground truth
@@ -145,31 +147,53 @@ target  = gt.reshape(1, -1, 1).to(device)
 coords  = get_coords_3d(D, H, W, device)
 optimiser = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-print("\nFine-tuning decoder on test volume for 1000 iterations...")
+print("\nFine-tuning decoder on test volume (Memory-Efficient)...")
 print("-" * 50)
 
+# Constants for chunking
+CHUNK_SIZE = 500000 # Adjusted down to be safe
+
 for step in range(1000):
-    outputs = model(coords)
-    pred    = outputs[0]
-    loss    = ((pred - target) ** 2).mean()
     optimiser.zero_grad()
-    loss.backward()
+    total_loss = 0
+    
+    # Iterate through the volume in chunks
+    num_pts = coords.shape[1]
+    for i in range(0, num_pts, CHUNK_SIZE):
+        batch_coords = coords[:, i:i+CHUNK_SIZE, :]
+        batch_target = target[:, i:i+CHUNK_SIZE, :]
+        
+        # Forward pass for this chunk
+        outputs = model(batch_coords)
+        pred_chunk = outputs[0]
+        
+        # Calculate loss for this chunk (scaled by chunk size)
+        chunk_loss = ((pred_chunk - batch_target) ** 2).mean() 
+        
+        # We need to scale the loss so the total gradient is the same 
+        # as if we did the whole volume at once
+        scaled_loss = chunk_loss * (batch_coords.shape[1] / num_pts)
+        
+        scaled_loss.backward()
+        
+        # Track total loss for printing
+        total_loss += scaled_loss.item()
+
     optimiser.step()
 
     if step % 200 == 0 or step == 999:
-        psnr = -10 * torch.log10(loss.detach()).item()
-        print(f"  Step {step:4d}/1000 | Loss: {loss.item():.6f} | PSNR: {psnr:.2f} dB")
-
-print("-" * 50)
-
-# Reconstruct volume
-print("\nReconstructing 3D volume...")
+        psnr = -10 * np.log10(total_loss + 1e-10)
+        print(f"  Step {step:4d}/1000 | Loss: {total_loss:.6f} | PSNR: {psnr:.2f} dB")
+# --- Updated Reconstruction ---
 model.eval()
+all_preds = []
 with torch.no_grad():
-    outputs = model(coords)
-    pred    = outputs[0]
+    for i in range(0, coords.shape[1], 1000000):
+        c = coords[:, i:i+1000000, :]
+        p = model(c)[0]
+        all_preds.append(p.cpu()) # Move to CPU immediately to save GPU RAM
 
-pred_vol = pred.reshape(D, H, W).cpu().numpy()
+pred_vol = torch.cat(all_preds, dim=1).reshape(D, H, W).numpy()
 gt_vol   = gt.numpy()
 
 # Plot 3 views: axial, coronal, sagittal
