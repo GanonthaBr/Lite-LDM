@@ -88,7 +88,17 @@ def main():
             # PSNR
             if 'torchmetrics' in globals() or 'compute_psnr' in globals():
                 psnr = compute_psnr(recon_clamped.cpu(), x_clamped.cpu(), data_range=1.0)
-                ms_ssim = compute_ms_ssim(recon_clamped.cpu(), x_clamped.cpu(), data_range=1.0) if compute_ms_ssim else None
+                # Dynamically set MS-SSIM kernel_size and betas for small images
+                ms_ssim = None
+                if compute_ms_ssim:
+                    _, _, h, w = x_clamped.shape
+                    # Use smaller kernel and fewer scales for small images
+                    if min(h, w) < 160:
+                        ms_ssim = compute_ms_ssim(
+                            recon_clamped.cpu(), x_clamped.cpu(), data_range=1.0, kernel_size=7, betas=(0.44, 0.285, 0.300)
+                        )
+                    else:
+                        ms_ssim = compute_ms_ssim(recon_clamped.cpu(), x_clamped.cpu(), data_range=1.0)
             else:
                 psnr = compute_psnr(x_clamped.cpu().numpy(), recon_clamped.cpu().numpy(), data_range=1.0)
                 ms_ssim = None
