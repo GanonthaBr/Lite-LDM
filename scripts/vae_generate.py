@@ -62,12 +62,43 @@ def main():
     recon = recon.clamp(0, 1)
     x_gt = x[:n].clamp(0, 1)
 
-    # Create a grid: [GT1, Recon1, GT2, Recon2, GT3, Recon3]
-    from torch import cat
-    pairs = [cat([x_gt[i], recon[i]], dim=2) for i in range(n)]  # concat along width
-    grid = cat(pairs, dim=1)  # concat along height
-    save_image(grid, args.output_path)
-    print(f"Saved GT/recon side-by-side grid to {args.output_path}")
+    # Create a horizontal grid: [GT1, Recon1, GT2, Recon2, GT3, Recon3]
+    import torchvision.transforms.functional as TF
+    import torchvision
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFont
+
+    # Stack images horizontally: [GT1, Recon1, GT2, Recon2, GT3, Recon3]
+    images = []
+    for i in range(n):
+        images.append(x_gt[i])
+        images.append(recon[i])
+    grid = torchvision.utils.make_grid(images, nrow=2*n, padding=8, pad_value=1.0)
+
+    # Convert to PIL for annotation
+    np_img = (grid.cpu().numpy() * 255).astype(np.uint8)
+    if np_img.shape[0] == 1:
+        np_img = np_img[0]
+    else:
+        np_img = np.transpose(np_img, (1, 2, 0))
+    pil_img = Image.fromarray(np_img)
+    draw = ImageDraw.Draw(pil_img)
+    font = None
+    try:
+        font = ImageFont.truetype("arial.ttf", 18)
+    except:
+        font = ImageFont.load_default()
+
+    w, h = pil_img.size
+    img_w = w // (2 * n)
+    # Annotate each GT and Recon
+    for i in range(n):
+        x0 = i * 2 * img_w
+        draw.text((x0 + 5, 5), f"GT {i+1}", fill=(255,0,0), font=font)
+        draw.text((x0 + img_w + 5, 5), f"Recon {i+1}", fill=(0,128,0), font=font)
+
+    pil_img.save(args.output_path)
+    print(f"Saved annotated GT/recon horizontal grid to {args.output_path}")
 
 if __name__ == "__main__":
     main()
