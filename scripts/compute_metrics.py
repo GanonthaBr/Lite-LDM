@@ -86,9 +86,9 @@ def main():
             x_clamped = x.clamp(0, 1)
             recon_clamped = recon.clamp(0, 1)
             # PSNR
-            if 'torchmetrics' in globals():
-                psnr = compute_psnr(recon_clamped, x_clamped, data_range=1.0)
-                ms_ssim = compute_ms_ssim(recon_clamped, x_clamped, data_range=1.0) if compute_ms_ssim else None
+            if 'torchmetrics' in globals() or 'compute_psnr' in globals():
+                psnr = compute_psnr(recon_clamped.cpu(), x_clamped.cpu(), data_range=1.0)
+                ms_ssim = compute_ms_ssim(recon_clamped.cpu(), x_clamped.cpu(), data_range=1.0) if compute_ms_ssim else None
             else:
                 psnr = compute_psnr(x_clamped.cpu().numpy(), recon_clamped.cpu().numpy(), data_range=1.0)
                 ms_ssim = None
