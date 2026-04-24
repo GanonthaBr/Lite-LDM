@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("--strainer-shared-encoder-layers", type=int, default=5)
     parser.add_argument("--strainer-num-train-decoders", type=int, default=10)
     parser.add_argument("--strainer-encoder-weights", default=None, help="Optional path to pre-trained STRAINER encoder weights (.pth)")
-    parser.add_argument("--output-path", default="./vae_recon.png", help="Path to save the reconstructed image")
+    parser.add_argument("--output-path", default="./vae_recon.png", help="Path to save the reconstructed image grid")
     parser.add_argument("--local", default=None, help="Override LOCAL storage path")
     return parser.parse_args()
 
@@ -52,16 +52,22 @@ def main():
     vae.eval()
     print(f"VAE loaded from {vae_ckpt}")
 
-    # Get a batch of images
+    # Get a batch of images (at least 3)
     batch = next(iter(loader))
     x = batch.to(device)
+    n = min(3, x.shape[0])
     with torch.no_grad():
-        recon, mu, logvar = vae(x)
+        recon, mu, logvar = vae(x[:n])
     # Clamp to [0,1] for visualization
     recon = recon.clamp(0, 1)
-    # Save the first reconstructed image
-    save_image(recon[0], args.output_path)
-    print(f"Saved reconstructed image to {args.output_path}")
+    x_gt = x[:n].clamp(0, 1)
+
+    # Create a grid: [GT1, Recon1, GT2, Recon2, GT3, Recon3]
+    from torch import cat
+    pairs = [cat([x_gt[i], recon[i]], dim=2) for i in range(n)]  # concat along width
+    grid = cat(pairs, dim=1)  # concat along height
+    save_image(grid, args.output_path)
+    print(f"Saved GT/recon side-by-side grid to {args.output_path}")
 
 if __name__ == "__main__":
     main()
