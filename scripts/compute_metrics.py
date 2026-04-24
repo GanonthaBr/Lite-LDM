@@ -26,6 +26,21 @@ def parse_args():
     parser.add_argument("--checkpoint-dir", default="./checkpoints", help="Directory containing VAE checkpoint")
     parser.add_argument("--num-batches", type=int, default=5, help="Number of batches to evaluate")
     parser.add_argument("--output-dir", default="./metrics_output", help="Directory to save metrics")
+    parser.add_argument(
+        "--encoder-backbone",
+        choices=["conv", "strainer"],
+        default="conv",
+        help="VAE encoder backbone",
+    )
+    parser.add_argument("--strainer-hidden-features", type=int, default=256)
+    parser.add_argument("--strainer-total-layers", type=int, default=6)
+    parser.add_argument("--strainer-shared-encoder-layers", type=int, default=5)
+    parser.add_argument("--strainer-num-train-decoders", type=int, default=10)
+    parser.add_argument(
+        "--strainer-encoder-weights",
+        default=None,
+        help="Optional path to pre-trained STRAINER encoder weights (.pth)",
+    )
     return parser.parse_args()
 
 def main():
@@ -46,7 +61,15 @@ def main():
     print(f"Dataset loaded: {len(dataset)} slices")
 
     # Load VAE
-    vae = VAE(latent_ch=512).to(device)
+    vae = VAE(
+        latent_ch=512,
+        encoder_backbone=args.encoder_backbone,
+        strainer_hidden_features=args.strainer_hidden_features,
+        strainer_total_layers=args.strainer_total_layers,
+        strainer_shared_encoder_layers=args.strainer_shared_encoder_layers,
+        strainer_num_train_decoders=args.strainer_num_train_decoders,
+        strainer_encoder_weights=args.strainer_encoder_weights,
+    ).to(device)
     vae.load_state_dict(torch.load(str(vae_ckpt), map_location=device))
     vae.eval()
     print(f"VAE loaded from {vae_ckpt}")
