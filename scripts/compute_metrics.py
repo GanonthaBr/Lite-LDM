@@ -31,9 +31,14 @@ def parse_args():
 def main():
     args = parse_args()
     ckpt_dir = Path(args.checkpoint_dir)
-    vae_ckpt = str(ckpt_dir / "vae_ckpt.pt")
+    vae_ckpt = ckpt_dir / "vae_ckpt.pt"
     device = resolve_device()
     print(f"Using device: {device}")
+
+    # Check checkpoint exists
+    print(f"Looking for VAE checkpoint at: {vae_ckpt.resolve()}")
+    if not vae_ckpt.exists():
+        raise FileNotFoundError(f"VAE checkpoint not found: {vae_ckpt.resolve()}")
 
     # Load data
     paths = resolve_paths(None)
@@ -42,7 +47,7 @@ def main():
 
     # Load VAE
     vae = VAE(latent_ch=512).to(device)
-    vae.load_state_dict(torch.load(vae_ckpt, map_location=device))
+    vae.load_state_dict(torch.load(str(vae_ckpt), map_location=device))
     vae.eval()
     print(f"VAE loaded from {vae_ckpt}")
 
